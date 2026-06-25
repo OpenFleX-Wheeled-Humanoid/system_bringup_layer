@@ -1,0 +1,54 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    swerve_drive_controller:
+      type: swerve_controller/SwerveDriveController
+
+swerve_drive_controller:
+  ros__parameters:
+    # 运动学参数（wheel_radius, fl/fr/bl/br_pos_x/y）由 launch 文件从
+    # swerve_description/config/chassis_version_6.0.yaml 注入
+
+    steering_joint_names:
+      - fl_steering_joint
+      - fr_steering_joint
+      - bl_steering_joint
+      - br_steering_joint
+    wheel_joint_names:
+      - fl_wheel_joint
+      - fr_wheel_joint
+      - bl_wheel_joint
+      - br_wheel_joint
+
+    # 模块位置由 launch 文件从 chassis_version_6.0.yaml 注入
+
+    # 转向限位（根据实际机械限位调整）
+    fl_steering_min: -1.5708
+    fl_steering_max:  1.5708
+    fr_steering_min: -1.5708
+    fr_steering_max:  1.5708
+    bl_steering_min: -1.5708
+    bl_steering_max:  1.5708
+    br_steering_min: -1.5708
+    br_steering_max:  1.5708
+
+    odom_frame_id: odom
+    base_frame_id: base_link
+    debug_topic: /swerve_drive_controller/debug_states
+    cmd_vel_timeout: 0.75
+    publish_rate: 50.0
+    debug_publish_rate: 20.0
+    max_wheel_speed: 2.0      # 轮速上限 (m/s)，独立底盘/遥控模式保留较高上限
+    wheel_accel_limit: 0.6    # 轮速变化率上限 (m/s^2)，默认更柔和；可由 launch 覆盖
+    steering_align_threshold: 0.10
+    steering_stop_threshold: 1.05
+    steering_slowdown_exponent: 1.5
+    steering_global_stop_threshold: 0.45
+    steering_global_slowdown_exponent: 2.5
+    module_speed_deadband: 0.02  # replay 低速段很多，不能过大，否则会吞掉短 horizon 指令
+    steering_command_deadband: 0.02  # 小角度目标保持不动，减少低速左右摆
+    low_speed_steering_command_deadband: 0.10  # 低速时过滤更大的舵角微摆，不影响轮速输出
+    low_speed_steering_deadband_speed: 0.16
+    enable_odom_tf: false   # TF 由 FAST-LIO2 发布 odom->base_link，禁用控制器的 TF
