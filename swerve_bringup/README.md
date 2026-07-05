@@ -110,4 +110,27 @@ source install/setup.bash
 
 ## License
 
-Apache-2.0
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
+
+Copyright (c) 2026 Chengdu Changshu Robot Co., Ltd. (成都长数机器人有限公司)
+
+For more details, see the [LICENSE](LICENSE) file or visit: http://creativecommons.org/licenses/by-nc-sa/4.0/
+
+## Acknowledgments
+
+This package is part of the OpenArmX robotic platform ecosystem, developed for research and industrial applications in collaborative robotics.
+
+---
+
+## 📞 Contact Us
+
+### Chengdu Changshu Robot Co., Ltd.
+
+| Contact           | Information                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| 📧 Email          | [openarmrobot@gmail.com](mailto:openarmrobot@gmail.com)                                                      |
+| 📱 Phone / WeChat | +86-17746530375                                                                                              |
+| 🌐 Website        | [https://openarmx.com/](https://openarmx.com/)                                                               |
+| 🌐 Documentation  | [http://docs.openarmx.com/](http://docs.openarmx.com/)                                                               |
+| 📍 Address        | Huacheng Machinery Plant, No.11 Xinye 8th Street, West Area, Tianjin Economic-Technological Development Area |
+| 👤 Contact Person | Mr. Wang                                                                                                     |
