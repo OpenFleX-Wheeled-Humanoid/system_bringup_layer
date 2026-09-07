@@ -4,7 +4,7 @@ English | [中文](./README-CN.md)
 
 ---
 
-RViz2 hold-to-move manual control panel for the OpenFlex swerve base.
+RViz2 hold-to-move manual control panel for the OpenFlex swerve base, with multi-key S-curve keyboard control.
 
 ## Description
 
@@ -15,7 +15,7 @@ Features:
 - Hold-to-move directional buttons (forward / backward / left / right)
 - Rotate left / rotate right buttons
 - Emergency STOP button
-- Keyboard control toggle (W/A/X/D + arrow keys)
+- Keyboard control toggle with multi-key combinations and S-curve ramping
 - Adjustable speed with slider and +/- buttons
 - Real-time linear and angular speed display
 - Status indicator
@@ -26,13 +26,13 @@ Features:
 
 | Button | Key | Action |
 |--------|-----|--------|
-| ⬆ Forward | `W` | Move forward |
-| ⬇ Backward | `X` | Move backward |
-| ⬅ Left | `A` | Strafe left |
-| ➡ Right | `D` | Strafe right |
-| ↺ Rotate Left | `←` | Rotate counter-clockwise |
-| ↻ Rotate Right | `→` | Rotate clockwise |
-| **STOP** | — | Emergency stop |
+| ⬆ Forward | `W` or `Up` | Move forward |
+| ⬇ Backward | `S` or `Down` | Move backward |
+| ⬅ Left | `A` or `Left` | Strafe left |
+| ➡ Right | `D` or `Right` | Strafe right |
+| ↺ Rotate Left | `Q` | Rotate counter-clockwise |
+| ↻ Rotate Right | `E` | Rotate clockwise |
+| **STOP** | `Space` | Immediately command zero velocity |
 
 > **Hold-to-move**: The robot moves while the button is held and stops when released.
 
@@ -40,19 +40,19 @@ Features:
 
 | Control | Key | Action |
 |---------|-----|--------|
-| Speed Up | `Q` | Increase speed by 25% |
-| Speed Down | `Z` | Decrease speed by 25% |
+| Speed Up | `Z` | Increase speed by 10% |
+| Speed Down | `C` | Decrease speed by 10% |
 | Speed Slider | — | Drag to set speed percentage |
 
-Speed range: 25% ~ 250% (default 100%)
+Speed range: 25% ~ 500% (default 100%)
 
 Default speeds:
-- Linear: 0.20 m/s (range: 0.05 ~ 0.50 m/s)
-- Angular: 0.20 rad/s (range: 0.05 ~ 0.50 rad/s)
+- Linear: 0.20 m/s (range: 0.05 ~ 1.00 m/s)
+- Angular: 0.20 rad/s (range: 0.05 ~ 1.00 rad/s)
 
 ### Keyboard Control
 
-Click the **键盘控制：关 / 键盘控制：开** button to toggle keyboard control mode. When enabled, use the keys listed above to control the chassis directly from the keyboard.
+Click the **键盘控制：关 / 键盘控制：开** button to toggle keyboard control mode. When enabled, translation and rotation keys can be held together, for example `W + Q`; opposite keys on the same axis cancel. Each keyboard axis uses a 20 Hz S-curve (0.5 s acceleration time, smoothness 0.3), and releasing keys ramps down smoothly. `Space` stops immediately and clears input state. A held mouse motion button owns the command until release and does not resume stale keyboard input.
 
 ## Published Topics
 
@@ -82,7 +82,7 @@ ros2 launch openarmx_integrated_bringup integrated_robot_bringup.launch.py
 ## Build
 
 ```bash
-cd ~/openflex_all/openflex_ws
+cd /home/openflex/openflex_all_new/experimental_version/openflex_ws
 colcon build --packages-select swerve_base_panel
 source install/setup.bash
 ```

@@ -66,7 +66,9 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
   ament_lint_auto_find_test_dependencies()
+  ament_add_pytest_test(keyboard_contract test/test_keyboard_contract.py)
 endif()
 
 ament_export_include_directories(include)

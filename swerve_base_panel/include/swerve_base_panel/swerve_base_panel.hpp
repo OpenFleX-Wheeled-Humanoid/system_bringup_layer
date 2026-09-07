@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <string>
 
 #include <QEvent>
@@ -65,9 +66,12 @@ private:
   void publishStop();
   bool handleKeyboardPress(int key);
   bool handleKeyboardRelease(int key);
-  bool startKeyboardMotion(int key);
   bool isKeyboardMotionKey(int key) const;
   void setKeyboardControlEnabled(bool enabled);
+  void updateKeyboardCommand();
+  void resetKeyboardSmoothing();
+  void clearKeyboardMotion();
+  bool keyboardSmoothingAtRest() const;
   void setSpeedScale(double scale);
   void setSpeedPercent(int percent);
   void applySpeedPercent();
@@ -79,13 +83,26 @@ private:
   static constexpr double kDefaultLinearSpeed = 0.20;
   static constexpr double kDefaultAngularSpeed = 0.20;
   static constexpr double kMinLinearSpeed = 0.05;
-  static constexpr double kMaxLinearSpeed = 0.50;
+  static constexpr double kMaxLinearSpeed = 1.00;
   static constexpr double kMinAngularSpeed = 0.05;
-  static constexpr double kMaxAngularSpeed = 0.50;
+  static constexpr double kMaxAngularSpeed = 1.00;
   static constexpr int kMinSpeedPercent = 25;
-  static constexpr int kMaxSpeedPercent = 250;
+  static constexpr int kMaxSpeedPercent = 500;
   static constexpr int kDefaultSpeedPercent = 100;
   static constexpr int kPublishIntervalMs = 50;
+  static constexpr double kKeyboardAccelerationTime = 0.5;
+  static constexpr double kKeyboardSmoothness = 0.3;
+
+  struct SCurveState
+  {
+    double max_velocity{0.0};
+    double current_velocity{0.0};
+    double current_acceleration{0.0};
+  };
+
+  static double updateSCurve(
+    SCurveState & state, double target_velocity, double acceleration_time,
+    double smoothness, double dt);
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
@@ -122,7 +139,11 @@ private:
   double active_linear_y_{0.0};
   double active_angular_z_{0.0};
   bool keyboard_control_enabled_{false};
-  int active_keyboard_key_{0};
+  bool keyboard_command_active_{false};
+  std::set<int> pressed_keyboard_keys_;
+  SCurveState keyboard_vx_;
+  SCurveState keyboard_vy_;
+  SCurveState keyboard_wz_;
 };
 
 }  // namespace swerve_base_panel

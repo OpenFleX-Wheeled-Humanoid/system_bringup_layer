@@ -27,9 +27,6 @@ class VRLiftControlNode(Node):
         self.declare_parameter("lift_speed", 0.05)
         self.declare_parameter("profile_speed", 0.05)
         self.declare_parameter("vr_timeout", 0.5)
-        # Kept for launch-file compatibility with the previous topic-based node.
-        self.declare_parameter("position_topic", "/lift_position_controller/commands")
-        self.declare_parameter("profile_speed_topic", "/lift_state_controller/profile_speed_cmd")
 
         self.button_x_topic = self.get_parameter("button_x_topic").value
         self.button_y_topic = self.get_parameter("button_y_topic").value

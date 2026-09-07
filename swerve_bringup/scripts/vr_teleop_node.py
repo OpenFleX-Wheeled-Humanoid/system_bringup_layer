@@ -150,9 +150,9 @@ class VRTeleopNode(Node):
         super().__init__('vr_teleop')
 
         # 声明参数（运动模式）
-        self.declare_parameter('max_linear_speed', 0.8)      # 最大线速度 (m/s)
-        self.declare_parameter('boost_linear_speed', 2.0)    # 兼容旧参数，当前不再使用
-        self.declare_parameter('max_angular_speed', 1.5)     # 最大角速度 (rad/s)
+        self.declare_parameter('max_linear_speed', 0.3)      # 最大线速度 (m/s)
+        self.declare_parameter('boost_linear_speed', 0.3)    # 兼容旧参数，当前不再使用
+        self.declare_parameter('max_angular_speed', 0.3)     # 最大角速度 (rad/s)
         self.declare_parameter('joystick_deadzone', 0.15)    # 摇杆死区 (0-1)
         self.declare_parameter('linear_expo', 1.0)           # 线速度摇杆指数曲线，1.0=线性
         self.declare_parameter('angular_expo', 1.0)          # 角速度摇杆指数曲线，1.0=线性
@@ -203,6 +203,7 @@ class VRTeleopNode(Node):
         # VR数据超时检测
         self.last_vr_data_time = self.get_clock().now()
         self.vr_timeout = 0.5  # 秒
+        self.vr_input_stale = False
         self.last_timeout_warning = self.get_clock().now()  # 用于节流警告
 
         # 创建S型加减速控制器（3个独立控制器：vx, vy, wz）
@@ -358,22 +359,41 @@ class VRTeleopNode(Node):
     def left_joystick_x_callback(self, msg: Float32):
         """左手摇杆X轴 (左右平移)"""
         self.left_joystick_x = msg.data
-        self.last_vr_data_time = self.get_clock().now()
+        self._mark_vr_data_received()
 
     def left_joystick_y_callback(self, msg: Float32):
         """左手摇杆Y轴 (前后移动)"""
         self.left_joystick_y = msg.data
-        self.last_vr_data_time = self.get_clock().now()
+        self._mark_vr_data_received()
 
     def right_joystick_x_callback(self, msg: Float32):
         """右手摇杆X轴 (旋转)"""
         self.right_joystick_x = msg.data
-        self.last_vr_data_time = self.get_clock().now()
+        self._mark_vr_data_received()
 
     def right_joystick_y_callback(self, msg: Float32):
         """右手摇杆Y轴 (备用,当前未使用)"""
         self.right_joystick_y = msg.data
+        self._mark_vr_data_received()
+
+    def _mark_vr_data_received(self):
         self.last_vr_data_time = self.get_clock().now()
+        if self.vr_input_stale:
+            self.vr_input_stale = False
+            self.get_logger().info('VR joystick data restored; chassis input enabled')
+
+    def _clear_joystick_inputs(self):
+        self.left_joystick_x = 0.0
+        self.left_joystick_y = 0.0
+        self.right_joystick_x = 0.0
+        self.right_joystick_y = 0.0
+
+    def _reset_scurve(self):
+        if not self.enable_scurve:
+            return
+        for controller in (self.scurve_vx, self.scurve_vy, self.scurve_wz):
+            if controller is not None:
+                controller.reset()
 
     # ==================== 速度配置回调函数 ====================
 
@@ -460,7 +480,12 @@ class VRTeleopNode(Node):
         elapsed = (self.get_clock().now() - self.last_vr_data_time).nanoseconds / 1e9
 
         if elapsed > self.vr_timeout and self.enabled:
-            # 超时自动停止
+            if not self.vr_input_stale:
+                self.vr_input_stale = True
+                self._clear_joystick_inputs()
+                self._reset_scurve()
+
+            # 超时后持续保持零速度，避免旧摇杆缓存继续输出
             self.stop_chassis()
             # 节流警告: 每5秒最多显示一次
             time_since_last_warning = (self.get_clock().now() - self.last_timeout_warning).nanoseconds / 1e9
@@ -481,6 +506,10 @@ class VRTeleopNode(Node):
 
         if not self.enabled:
             # 禁用时不发布，让其他节点（如腰部控制）可以控制底盘
+            return
+
+        if self.vr_input_stale:
+            self.stop_chassis()
             return
 
         # 应用死区处理

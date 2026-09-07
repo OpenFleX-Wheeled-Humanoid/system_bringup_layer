@@ -35,6 +35,29 @@ SwerveBasePanel::SwerveBasePanel(QWidget * parent)
   setupUi();
 }
 
+double SwerveBasePanel::updateSCurve(
+  SCurveState & state, double target_velocity, double acceleration_time,
+  double smoothness, double dt)
+{
+  const double max_velocity = std::max(0.0, state.max_velocity);
+  target_velocity = std::clamp(target_velocity, -max_velocity, max_velocity);
+  const double max_acceleration = max_velocity / std::max(0.1, acceleration_time);
+  const double jerk_time = std::max(0.01, acceleration_time * smoothness);
+  const double max_jerk = max_acceleration / jerk_time;
+  const double velocity_error = target_velocity - state.current_velocity;
+  const double desired_acceleration = std::clamp(
+    velocity_error / dt, -max_acceleration, max_acceleration);
+  const double max_jerk_change = max_jerk * dt;
+  const double acceleration_change = std::clamp(
+    desired_acceleration - state.current_acceleration,
+    -max_jerk_change, max_jerk_change);
+  state.current_acceleration = std::clamp(
+    state.current_acceleration + acceleration_change, -max_acceleration, max_acceleration);
+  state.current_velocity = std::clamp(
+    state.current_velocity + state.current_acceleration * dt, -max_velocity, max_velocity);
+  return state.current_velocity;
+}
+
 SwerveBasePanel::~SwerveBasePanel()
 {
   if (command_timer_ != nullptr) {
@@ -63,7 +86,8 @@ void SwerveBasePanel::onInitialize()
 
 void SwerveBasePanel::setupUi()
 {
-  setStyleSheet(R"(
+  setStyleSheet(
+    R"(
     QWidget {
       background: #FAFAFA;
       color: #1F2937;
@@ -161,8 +185,8 @@ void SwerveBasePanel::setupUi()
   auto * speed_layout = new QVBoxLayout(speed_group);
 
   auto * speed_button_row = new QHBoxLayout();
-  speed_down_button_ = new QPushButton(QStringLiteral("减速  （Z）"));
-  speed_up_button_ = new QPushButton(QStringLiteral("加速  （Q）"));
+  speed_down_button_ = new QPushButton(QStringLiteral("减速  （C）"));
+  speed_up_button_ = new QPushButton(QStringLiteral("加速  （Z）"));
   speed_button_row->addWidget(speed_down_button_);
   speed_button_row->addWidget(speed_up_button_);
   speed_layout->addLayout(speed_button_row);
@@ -196,7 +220,7 @@ void SwerveBasePanel::setupUi()
   move_grid->setSpacing(6);
 
   forward_button_ = new QPushButton(arrow(0x2B06) + QStringLiteral("  （W）"));
-  backward_button_ = new QPushButton(arrow(0x2B07) + QStringLiteral("  （X）"));
+  backward_button_ = new QPushButton(arrow(0x2B07) + QStringLiteral("  （S）"));
   left_button_ = new QPushButton(arrow(0x2B05) + QStringLiteral("  （A）"));
   right_button_ = new QPushButton(arrow(0x27A1) + QStringLiteral("  （D）"));
   forward_button_->setObjectName("MotionButton");
@@ -222,8 +246,8 @@ void SwerveBasePanel::setupUi()
 
   auto * rotate_group = new QGroupBox(QStringLiteral("Rotate"));
   auto * rotate_layout = new QHBoxLayout(rotate_group);
-  rotate_left_button_ = new QPushButton(arrow(0x21BA) + QStringLiteral("  （") + arrow(0x2190) + QStringLiteral("）"));
-  rotate_right_button_ = new QPushButton(arrow(0x21BB) + QStringLiteral("  （") + arrow(0x2192) + QStringLiteral("）"));
+  rotate_left_button_ = new QPushButton(arrow(0x21BA) + QStringLiteral("  （Q）"));
+  rotate_right_button_ = new QPushButton(arrow(0x21BB) + QStringLiteral("  （E）"));
   rotate_left_button_->setObjectName("RotateButton");
   rotate_right_button_->setObjectName("RotateButton");
   rotate_layout->addWidget(rotate_left_button_);
@@ -244,7 +268,9 @@ void SwerveBasePanel::setupUi()
 
   setLayout(root);
 
-  connect(speed_down_button_, &QPushButton::clicked, this, &SwerveBasePanel::onDecreaseSpeedClicked);
+  connect(
+    speed_down_button_, &QPushButton::clicked, this,
+    &SwerveBasePanel::onDecreaseSpeedClicked);
   connect(speed_up_button_, &QPushButton::clicked, this, &SwerveBasePanel::onIncreaseSpeedClicked);
   connect(speed_slider_, &QSlider::valueChanged, this, &SwerveBasePanel::onSpeedSliderChanged);
 
@@ -254,7 +280,9 @@ void SwerveBasePanel::setupUi()
   connectMotionButton(right_button_, &SwerveBasePanel::onRightPressed);
   connectMotionButton(rotate_left_button_, &SwerveBasePanel::onRotateLeftPressed);
   connectMotionButton(rotate_right_button_, &SwerveBasePanel::onRotateRightPressed);
-  connect(emergency_stop_button_, &QPushButton::clicked, this, &SwerveBasePanel::onEmergencyStopClicked);
+  connect(
+    emergency_stop_button_, &QPushButton::clicked, this,
+    &SwerveBasePanel::onEmergencyStopClicked);
   connect(
     keyboard_toggle_button_,
     &QPushButton::toggled,
@@ -282,9 +310,9 @@ void SwerveBasePanel::setupRos()
   cmd_vel_topic_ = node_->get_parameter("cmd_vel_topic").as_string();
   if (!config_loaded_) {
     speed_percent_ = static_cast<int>(clamp(
-      node_->get_parameter("default_speed_percent").as_int(),
-      kMinSpeedPercent,
-      kMaxSpeedPercent));
+        node_->get_parameter("default_speed_percent").as_int(),
+        kMinSpeedPercent,
+        kMaxSpeedPercent));
     applySpeedPercent();
   }
 
@@ -310,17 +338,18 @@ void SwerveBasePanel::connectMotionButton(
   button->installEventFilter(this);
 
   connect(button, &QPushButton::pressed, this, pressed_slot);
-  connect(button, &QPushButton::released, this, [this]() {
-    stopActiveCommand(QStringLiteral("Stopped"));
-  });
+  connect(
+    button, &QPushButton::released, this, [this]() {
+      stopActiveCommand(QStringLiteral("Stopped"));
+    });
 }
 
 bool SwerveBasePanel::eventFilter(QObject * watched, QEvent * event)
 {
   if (watched == active_motion_button_ &&
-      (event->type() == QEvent::Leave ||
-       event->type() == QEvent::Hide ||
-       event->type() == QEvent::FocusOut))
+    (event->type() == QEvent::Leave ||
+    event->type() == QEvent::Hide ||
+    event->type() == QEvent::FocusOut))
   {
     stopActiveCommand(QStringLiteral("Stopped"));
   }
@@ -331,7 +360,7 @@ bool SwerveBasePanel::eventFilter(QObject * watched, QEvent * event)
 void SwerveBasePanel::keyPressEvent(QKeyEvent * event)
 {
   if (event != nullptr && keyboard_control_enabled_ && !event->isAutoRepeat() &&
-      handleKeyboardPress(event->key()))
+    handleKeyboardPress(event->key()))
   {
     event->accept();
     return;
@@ -343,7 +372,7 @@ void SwerveBasePanel::keyPressEvent(QKeyEvent * event)
 void SwerveBasePanel::keyReleaseEvent(QKeyEvent * event)
 {
   if (event != nullptr && keyboard_control_enabled_ && !event->isAutoRepeat() &&
-      handleKeyboardRelease(event->key()))
+    handleKeyboardRelease(event->key()))
   {
     event->accept();
     return;
@@ -377,7 +406,7 @@ void SwerveBasePanel::onForwardPressed()
 
 void SwerveBasePanel::onBackwardPressed()
 {
-  startContinuousCommand(backward_button_, -linear_speed_, 0.0, 0.0, QStringLiteral("X"));
+  startContinuousCommand(backward_button_, -linear_speed_, 0.0, 0.0, QStringLiteral("S"));
 }
 
 void SwerveBasePanel::onLeftPressed()
@@ -392,16 +421,18 @@ void SwerveBasePanel::onRightPressed()
 
 void SwerveBasePanel::onRotateLeftPressed()
 {
-  startContinuousCommand(rotate_left_button_, 0.0, 0.0, angular_speed_, arrow(0x2190));
+  startContinuousCommand(rotate_left_button_, 0.0, 0.0, angular_speed_, QStringLiteral("Q"));
 }
 
 void SwerveBasePanel::onRotateRightPressed()
 {
-  startContinuousCommand(rotate_right_button_, 0.0, 0.0, -angular_speed_, arrow(0x2192));
+  startContinuousCommand(rotate_right_button_, 0.0, 0.0, -angular_speed_, QStringLiteral("E"));
 }
 
 void SwerveBasePanel::onEmergencyStopClicked()
 {
+  clearKeyboardMotion();
+  resetKeyboardSmoothing();
   stopActiveCommand(QStringLiteral("Emergency stop"));
   publishStop();
   updateStatus(QStringLiteral("Emergency stop"), "#FEE2E2");
@@ -419,6 +450,9 @@ void SwerveBasePanel::startContinuousCommand(
   double angular_z,
   const QString & label)
 {
+  clearKeyboardMotion();
+  resetKeyboardSmoothing();
+
   if (active_motion_button_ != nullptr && active_motion_button_ != source_button) {
     active_motion_button_->setDown(false);
   }
@@ -448,7 +482,6 @@ void SwerveBasePanel::stopActiveCommand(const QString & reason)
   }
   command_active_ = false;
   active_motion_button_ = nullptr;
-  active_keyboard_key_ = 0;
 
   if (command_timer_ != nullptr) {
     command_timer_->stop();
@@ -462,14 +495,13 @@ void SwerveBasePanel::stopActiveCommand(const QString & reason)
 
 void SwerveBasePanel::onCommandTimer()
 {
-  if (!command_active_) {
-    if (command_timer_ != nullptr) {
-      command_timer_->stop();
-    }
+  if (command_active_) {
+    publishTwist(active_linear_x_, active_linear_y_, active_angular_z_);
     return;
   }
-
-  publishTwist(active_linear_x_, active_linear_y_, active_angular_z_);
+  if (keyboard_command_active_) {
+    updateKeyboardCommand();
+  }
 }
 
 void SwerveBasePanel::onRosSpinTimer()
@@ -499,70 +531,121 @@ void SwerveBasePanel::publishStop()
 
 bool SwerveBasePanel::handleKeyboardPress(int key)
 {
-  if (key == Qt::Key_Q) {
+  if (key == Qt::Key_Z) {
     onIncreaseSpeedClicked();
     return true;
   }
-  if (key == Qt::Key_Z) {
+  if (key == Qt::Key_C) {
     onDecreaseSpeedClicked();
     return true;
   }
+  if (key == Qt::Key_Space) {
+    clearKeyboardMotion();
+    resetKeyboardSmoothing();
+    stopActiveCommand(QStringLiteral("Emergency stop"));
+    publishStop();
+    updateStatus(QStringLiteral("Emergency stop"), "#FEE2E2");
+    return true;
+  }
 
-  return startKeyboardMotion(key);
+  // A held mouse button owns /cmd_vel until its release. Keyboard speed keys
+  // above still update the displayed scale, but motion keys cannot take over.
+  if (command_active_) {
+    return true;
+  }
+
+  if (!isKeyboardMotionKey(key)) {
+    return false;
+  }
+  pressed_keyboard_keys_.insert(key);
+  keyboard_command_active_ = true;
+  if (command_timer_ != nullptr && !command_timer_->isActive()) {
+    command_timer_->start(kPublishIntervalMs);
+  }
+  updateKeyboardCommand();
+  return true;
 }
 
 bool SwerveBasePanel::handleKeyboardRelease(int key)
 {
   if (isKeyboardMotionKey(key)) {
-    if (active_keyboard_key_ == key) {
-      stopActiveCommand(QStringLiteral("Stopped"));
-    }
+    pressed_keyboard_keys_.erase(key);
     return true;
   }
 
-  return key == Qt::Key_Q || key == Qt::Key_Z;
-}
-
-bool SwerveBasePanel::startKeyboardMotion(int key)
-{
-  switch (key) {
-    case Qt::Key_W:
-      active_keyboard_key_ = key;
-      onForwardPressed();
-      return true;
-    case Qt::Key_X:
-      active_keyboard_key_ = key;
-      onBackwardPressed();
-      return true;
-    case Qt::Key_A:
-      active_keyboard_key_ = key;
-      onLeftPressed();
-      return true;
-    case Qt::Key_D:
-      active_keyboard_key_ = key;
-      onRightPressed();
-      return true;
-    case Qt::Key_Left:
-      active_keyboard_key_ = key;
-      onRotateLeftPressed();
-      return true;
-    case Qt::Key_Right:
-      active_keyboard_key_ = key;
-      onRotateRightPressed();
-      return true;
-    default:
-      return false;
-  }
+  return key == Qt::Key_Z || key == Qt::Key_C || key == Qt::Key_Space;
 }
 
 bool SwerveBasePanel::isKeyboardMotionKey(int key) const
 {
-  return key == Qt::Key_W ||
-         key == Qt::Key_X ||
-         key == Qt::Key_A ||
-         key == Qt::Key_D ||
-         key == Qt::Key_Left ||
-         key == Qt::Key_Right;
+  return key == Qt::Key_W || key == Qt::Key_Up ||
+         key == Qt::Key_S || key == Qt::Key_Down ||
+         key == Qt::Key_A || key == Qt::Key_Left ||
+         key == Qt::Key_D || key == Qt::Key_Right ||
+         key == Qt::Key_Q || key == Qt::Key_E;
+}
+
+void SwerveBasePanel::updateKeyboardCommand()
+{
+  const auto is_pressed = [this](int key) {
+      return pressed_keyboard_keys_.find(key) != pressed_keyboard_keys_.end();
+    };
+  const int forward = is_pressed(Qt::Key_W) || is_pressed(Qt::Key_Up);
+  const int backward = is_pressed(Qt::Key_S) || is_pressed(Qt::Key_Down);
+  const int left = is_pressed(Qt::Key_A) || is_pressed(Qt::Key_Left);
+  const int right = is_pressed(Qt::Key_D) || is_pressed(Qt::Key_Right);
+  const int rotate_left = is_pressed(Qt::Key_Q);
+  const int rotate_right = is_pressed(Qt::Key_E);
+
+  const double target_vx = static_cast<double>(forward - backward) * linear_speed_;
+  const double target_vy = static_cast<double>(left - right) * linear_speed_;
+  const double target_wz = static_cast<double>(rotate_left - rotate_right) * angular_speed_;
+  const double dt = static_cast<double>(kPublishIntervalMs) / 1000.0;
+  const double smooth_vx = updateSCurve(
+    keyboard_vx_, target_vx, kKeyboardAccelerationTime, kKeyboardSmoothness, dt);
+  const double smooth_vy = updateSCurve(
+    keyboard_vy_, target_vy, kKeyboardAccelerationTime, kKeyboardSmoothness, dt);
+  const double smooth_wz = updateSCurve(
+    keyboard_wz_, target_wz, kKeyboardAccelerationTime, kKeyboardSmoothness, dt);
+  publishTwist(smooth_vx, smooth_vy, smooth_wz);
+
+  const bool moving_target = forward || backward || left || right || rotate_left || rotate_right;
+  keyboard_command_active_ = moving_target || !keyboardSmoothingAtRest();
+  if (!keyboard_command_active_ && command_timer_ != nullptr) {
+    command_timer_->stop();
+    publishStop();
+    updateStatus(QStringLiteral("Stopped"), "#F3F4F6");
+  } else if (moving_target) {
+    updateStatus(QStringLiteral("Keyboard control active"), "#DBEAFE");
+  }
+}
+
+void SwerveBasePanel::resetKeyboardSmoothing()
+{
+  for (auto * state : {&keyboard_vx_, &keyboard_vy_, &keyboard_wz_}) {
+    state->current_velocity = 0.0;
+    state->current_acceleration = 0.0;
+  }
+}
+
+void SwerveBasePanel::clearKeyboardMotion()
+{
+  pressed_keyboard_keys_.clear();
+  keyboard_command_active_ = false;
+  if (command_timer_ != nullptr && !command_active_) {
+    command_timer_->stop();
+  }
+}
+
+bool SwerveBasePanel::keyboardSmoothingAtRest() const
+{
+  constexpr double epsilon = 1e-4;
+  return std::abs(keyboard_vx_.current_velocity) < epsilon &&
+         std::abs(keyboard_vy_.current_velocity) < epsilon &&
+         std::abs(keyboard_wz_.current_velocity) < epsilon &&
+         std::abs(keyboard_vx_.current_acceleration) < epsilon &&
+         std::abs(keyboard_vy_.current_acceleration) < epsilon &&
+         std::abs(keyboard_wz_.current_acceleration) < epsilon;
 }
 
 void SwerveBasePanel::setKeyboardControlEnabled(bool enabled)
@@ -575,7 +658,8 @@ void SwerveBasePanel::setKeyboardControlEnabled(bool enabled)
   if (keyboard_toggle_button_ != nullptr) {
     const bool old_block = keyboard_toggle_button_->blockSignals(true);
     keyboard_toggle_button_->setChecked(enabled);
-    keyboard_toggle_button_->setText(enabled ? QStringLiteral("键盘控制：开") : QStringLiteral("键盘控制：关"));
+    keyboard_toggle_button_->setText(
+      enabled ? QStringLiteral("键盘控制：开") : QStringLiteral("键盘控制：关"));
     keyboard_toggle_button_->blockSignals(old_block);
   }
 
@@ -584,9 +668,10 @@ void SwerveBasePanel::setKeyboardControlEnabled(bool enabled)
     grabKeyboard();
     updateStatus(QStringLiteral("Keyboard control ON"), "#DBEAFE");
   } else {
-    if (active_keyboard_key_ != 0) {
-      stopActiveCommand(QStringLiteral("Stopped"));
-    }
+    clearKeyboardMotion();
+    resetKeyboardSmoothing();
+    stopActiveCommand(QStringLiteral("Stopped"));
+    publishStop();
     releaseKeyboard();
     updateStatus(QStringLiteral("Keyboard control OFF"), "#F3F4F6");
   }
@@ -594,7 +679,8 @@ void SwerveBasePanel::setKeyboardControlEnabled(bool enabled)
 
 void SwerveBasePanel::setSpeedScale(double scale)
 {
-  const int next_percent = static_cast<int>(std::round(static_cast<double>(speed_percent_) * scale));
+  const int next_percent =
+    static_cast<int>(std::round(static_cast<double>(speed_percent_) * scale));
   setSpeedPercent(next_percent);
 }
 
@@ -618,6 +704,9 @@ void SwerveBasePanel::applySpeedPercent()
   const double scale = static_cast<double>(speed_percent_) / 100.0;
   linear_speed_ = clamp(kDefaultLinearSpeed * scale, kMinLinearSpeed, kMaxLinearSpeed);
   angular_speed_ = clamp(kDefaultAngularSpeed * scale, kMinAngularSpeed, kMaxAngularSpeed);
+  keyboard_vx_.max_velocity = linear_speed_;
+  keyboard_vy_.max_velocity = linear_speed_;
+  keyboard_wz_.max_velocity = angular_speed_;
 }
 
 void SwerveBasePanel::refreshActiveCommandVelocity()
@@ -673,9 +762,10 @@ void SwerveBasePanel::updateStatus(const QString & text, const QString & color)
 
   status_label_->setText(QStringLiteral("Status: ") + text);
   status_label_->setStyleSheet(
-    QString("QLabel#StatusLabel { background:%1; border:1px solid #D1D5DB; "
-            "border-radius:5px; padding:6px; color:#1F2937; }")
-      .arg(color));
+    QString(
+      "QLabel#StatusLabel { background:%1; border:1px solid #D1D5DB; "
+      "border-radius:5px; padding:6px; color:#1F2937; }")
+    .arg(color));
 }
 
 double SwerveBasePanel::clamp(double value, double lower, double upper) const
