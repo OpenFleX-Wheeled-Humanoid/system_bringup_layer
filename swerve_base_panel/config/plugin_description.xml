@@ -1,0 +1,8 @@
+<library path="swerve_base_panel">
+  <class
+    name="swerve_base_panel/SwerveBasePanel"
+    type="swerve_base_panel::SwerveBasePanel"
+    base_class_type="rviz_common::Panel">
+    <description>Hold-to-move manual swerve base control panel for RViz2.</description>
+  </class>
+</library>

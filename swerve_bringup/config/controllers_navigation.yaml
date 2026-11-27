@@ -1,0 +1,54 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    swerve_drive_controller:
+      type: swerve_controller/SwerveDriveController
+
+swerve_drive_controller:
+  ros__parameters:
+    # 运动学参数（wheel_radius, fl/fr/bl/br_pos_x/y）由 launch 文件从
+    # swerve_description/config/chassis_version_6.0.yaml 注入
+    cmd_vel_topic: /cmd_vel_safe
+
+    steering_joint_names:
+      - fl_steering_joint
+      - fr_steering_joint
+      - bl_steering_joint
+      - br_steering_joint
+    wheel_joint_names:
+      - fl_wheel_joint
+      - fr_wheel_joint
+      - bl_wheel_joint
+      - br_wheel_joint
+
+    # 模块位置由 launch 文件从 chassis_version_6.0.yaml 注入
+
+    fl_steering_min: -1.5708
+    fl_steering_max: 1.5708
+    fr_steering_min: -1.5708
+    fr_steering_max: 1.5708
+    bl_steering_min: -1.5708
+    bl_steering_max: 1.5708
+    br_steering_min: -1.5708
+    br_steering_max: 1.5708
+
+    odom_frame_id: odom
+    base_frame_id: base_link
+    debug_topic: /swerve_drive_controller/debug_states
+    cmd_vel_timeout: 0.4
+    publish_rate: 50.0
+    debug_publish_rate: 20.0
+    max_wheel_speed: 1.2     # 轮速安全上限；不是底盘前进速度上限
+    wheel_accel_limit: 1.0   # 更柔和的轮速变化率，降低起步/急停冲击
+    steering_align_threshold: 0.08
+    steering_stop_threshold: 0.90
+    steering_slowdown_exponent: 2.2
+    steering_global_stop_threshold: 0.35
+    steering_global_slowdown_exponent: 3.0
+    module_speed_deadband: 0.02
+    steering_command_deadband: 0.02
+    low_speed_steering_command_deadband: 0.10
+    low_speed_steering_deadband_speed: 0.16
+    enable_odom_tf: false
